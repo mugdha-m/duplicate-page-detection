@@ -3,8 +3,18 @@ import os
 import string
 import shutil
 import re
+import numpy as np
 from gensim import corpora, models, similarities
+from sklearn.feature_extraction.text import TfidfVectorizer,CountVectorizer
+from sklearn.metrics.pairwise import cosine_similarity,euclidean_distances
+from sklearn.metrics import jaccard_similarity_score
+from scipy.stats import pearsonr
 
+'''list_docs = ["d01a","d09b","d18c","d25e","d35f","d42g",
+"d49i","d58k","d02a","d10b","d20d","d26e","d36f","d46h",
+"d51i","d60k","d03a","d16c","d21d","d29e","d38g","d47h",
+"d52i","d07b","d17c","d23d","d33f","d40g","d48h","d55k"]
+'''
 path = os.getcwd()+'/query_docs/' #path to the dataset
 
 #path to the output of stemmed data set
@@ -42,70 +52,70 @@ def preprocess(line):
 	return line2, line_list
 
 # looping over the files
+path_list={}
+for root, dirs, files in os.walk(path):
+#for filename in os.listdir(path):
+	for file in files:
+		file1 = open(os.path.join(root, file),'r')
+		file2 = open(os.getcwd()+'/stemmed_output/'+file, 'w')
+		text1 = file1.readlines()
+		r = root
+		ind = r.rfind("/")
+		r = r[:ind]
+		ind2 = r.rfind('/')
+		r = r[ind2+1:]
+		#print(file)
+		path_list[file] = r
+		for line in text1:
+			# preprocessing the text
+			line2, line_list = preprocess(line)
+			file2.write(line2)
+			documents.append(line_list)
+
+#list to tuple		
+path = os.getcwd()+'/stemmed_output/' #path to the dataset
+
+documents_final = []
 for filename in os.listdir(path):
 	file1 = open(path+filename,'r')
-	file2 = open(os.getcwd()+'/stemmed_output/'+filename, 'w')
 	text1 = file1.readlines()
-	for line in text1:
-		# preprocessing the text
-		line2, line_list = preprocess(line)
-		file2.write(line2)
-		documents.append(line_list)
-		
-		
-		
-				
-dictionary = corpora.Dictionary(documents)
-dictionary.save('/tmp/classic_doc.dict')
-corpus = [dictionary.doc2bow(text) for text in documents]
-#print corpus
+	#print(text1)
+	documents_final.append(str(text1))
 
-
-
-##############TF-IDF#####################
-
-tfidf = models.TfidfModel(corpus)
-corpus_tfidf = tfidf[corpus]
-#for doc in corpus_tfidf:
-#	print doc
+documents = tuple(documents_final)
 	
-index = similarities.MatrixSimilarity(corpus_tfidf)
+#cosine_similarity
+tfidf_vectorizer = TfidfVectorizer()
+tfidf_matrix = tfidf_vectorizer.fit_transform(documents)
+arr = tfidf_matrix.toarray()
 
-query = "Preliminary Report Proposal"
-q, ql = preprocess(query)
-vec_bow = dictionary.doc2bow(q.lower().split())
-vec_tfidf = tfidf[vec_bow] # convert the query to LSI space
-#print("\n\nThe TF-IDF vector of query:\n")
-#print(vec_tfidf)
-sims = index[vec_tfidf]
-#print("\n\nThe results of cosine similarity calculations with the corpus:\n")
-sorted(enumerate(sims), key=lambda item: -item[1])
-#print(sims)	
+cos_sim = cosine_similarity(tfidf_matrix, tfidf_matrix)
 
+final_matrix = {}
+n = len(documents) #303
+print(n)
 
+for i in range(n):
+	d = (documents[i])
+	index1 = d.find(" ")
+	#print(index1)
+	index2 = d[index1+1:].find(" ")
+	#print(index2)
+	name1 = documents[i][0:index1]	+ '-' + documents[i][index1+1:index1+index2+1]
+	name1 = name1[2:].upper()
+	#print(name1)	
+	for j in range(i):			
+		#computation
+		d = (documents[j])
+		index1 = d.find(" ")
+		#print(index1)
+		index2 = d[index1+1:].find(" ")
+		#print(index2)
+		name2 = documents[j][0:index1]	+ '-' + documents[j][index1+1:index1+index2+1]
+		name2 = name2[2:].upper()
+		#print(name2)
 
+		final_matrix[name1 + '*' + name2]= cos_sim[i][j]
 
-
-
-##################LSI#############################
-
-
-lsi = models.lsimodel.LsiModel(corpus, num_topics=10)
-#print lsi.projection.u
-#print lsi.projection.s
-
-index = similarities.MatrixSimilarity(lsi[corpus])
-
-query = "Preliminary Report Proposal"
-q, ql = preprocess(query)
-vec_bow = dictionary.doc2bow(q.lower().split())
-vec_lsi = lsi[vec_bow] # convert the query to LSI space
-#print("\n\nThe LSI vector of query:\n")
-#print(vec_lsi)
-sims = index[vec_lsi]
-
-#print("\n\nThe results of cosine similarity calculations with the corpus:\n")
-sorted(enumerate(sims), key=lambda item: -item[1])
-#print(sims)
-
-
+print(final_matrix)
+print(len(final_matrix)) #44832
