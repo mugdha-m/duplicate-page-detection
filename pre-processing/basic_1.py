@@ -6,6 +6,7 @@ from sklearn.metrics.pairwise import cosine_similarity,euclidean_distances
 from sklearn.metrics import jaccard_similarity_score
 from scipy.stats import pearsonr
 from scipy.sparse import csr_matrix
+
 path = os.getcwd()+'/stemmed_output/' #path to the dataset
 
 documents_final = []
